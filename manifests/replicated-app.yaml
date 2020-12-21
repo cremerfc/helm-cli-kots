@@ -3,7 +3,7 @@ kind: Application
 metadata:
   name: app-slug
 spec:
-  title: App Name
+  title: KOTS Helm CLI
   icon: https://raw.githubusercontent.com/cncf/artwork/master/projects/kubernetes/icon/color/kubernetes-icon-color.png
   statusInformers:
     - deployment/example-nginx
