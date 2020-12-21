@@ -1,32 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: example-nginx
+  name: kots-helm-cli
   labels:
-    app: example
-    component: nginx
+    app: kots-helm-cli
 spec:
   selector:
     matchLabels:
-      app: example
-      component: nginx
+      app: kots-helm-cli
   template:
     metadata:
       labels:
-        app: example
-        component: nginx
+        app: kots-helm-cli
     spec:
       containers:
-        - name: nginx
-          image: nginx
-          envFrom:
-          - configMapRef:
-              name: example-config
-          resources:
-            limits:
-              memory: '256Mi'
-              cpu: '500m'
-            requests:
-              memory: '32Mi'
-              cpu: '100m'
-
+        - name: kots-helm-cli
+          image: cremerfc/helm-cli:3.2.4.0
