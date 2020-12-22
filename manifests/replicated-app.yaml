@@ -5,6 +5,7 @@ metadata:
 spec:
   title: KOTS Helm CLI
   icon: https://raw.githubusercontent.com/cncf/artwork/master/projects/kubernetes/icon/color/kubernetes-icon-color.png
+  requireMinimalRBACPrivileges: false
   statusInformers:
     - deployment/example-nginx
   ports:
