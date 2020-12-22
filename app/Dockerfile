@@ -19,4 +19,4 @@ RUN apk add --update --no-cache curl ca-certificates && \
 
 WORKDIR /apps
 
-COPY /apps
+COPY grafana-6.1.16.tgz /apps
