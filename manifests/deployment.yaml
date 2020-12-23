@@ -13,9 +13,11 @@ spec:
       labels:
         app: kots-helm-cli
     spec:
+      serviceAccountName: kotsadm
+      automountServiceAccountToken: true
       containers:
         - name: kots-helm-cli
           image: cremerfc/helm-cli:3.2.4.4
           command: ["/bin/sh"]
-          args: ["-c", "helm install grafana /apps/grafana-6.1.16.tgz"]
+          args: ["-c", "helm install grafana /apps/grafana-6.1.16.tgz --set persistence.enabled={{repl if ConfigOptionEquals `enable_persistance` `1`}}true{{repl else}}false{{repl end}}"]
           terminationMessagePolicy: FallbackToLogsOnError
