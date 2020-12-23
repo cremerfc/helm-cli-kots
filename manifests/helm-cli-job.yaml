@@ -5,9 +5,6 @@ metadata:
   labels:
     app: kots-helm-cli
 spec:
-  selector:
-    matchLabels:
-      app: kots-helm-cli
   template:
     metadata:
       labels:
