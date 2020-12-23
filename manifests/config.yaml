@@ -16,5 +16,5 @@ spec:
         - name: 
           title: enable_persistance
           help_text: This option will create a persistent volume
-          type: text
+          type: bool
           when: repl{{ ConfigOptionEquals "default_settings" "0" }}
