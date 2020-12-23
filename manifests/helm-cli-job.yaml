@@ -1,5 +1,5 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: kots-helm-cli
   labels:
@@ -21,3 +21,5 @@ spec:
           command: ["/bin/sh"]
           args: ["-c", "helm install grafana /apps/grafana-6.1.16.tgz --set persistence.enabled={{repl if ConfigOptionEquals `enable_persistance` `1`}}true{{repl else}}false{{repl end}}"]
           terminationMessagePolicy: FallbackToLogsOnError
+      restartPolicy: Never
+  backoffLimit: 3    
