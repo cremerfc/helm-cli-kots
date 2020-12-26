@@ -13,8 +13,12 @@ spec:
           help_text: Uncheck box to override default settings
           type: bool
           default: "1"
-        - name: 
-          title: enable_persistance
-          help_text: This option will create a persistent volume
+        - name: enable_persistence
+          title: Enable Persistence Volume
+          help_text: This option will create persistent storage (see http://someurl.com for mo info)
           type: bool
           when: repl{{ ConfigOptionEquals "default_settings" "0" }}
+        - name: enable_test_framework
+          title: Enable Test Framework?
+          type: bool
+          default: "1"
