@@ -7,20 +7,19 @@ Example project that shows how to package the HELM CLI as a KOTS application. In
 
 ### Desired Outcome
 
-The desired outcome of this is to learn if it is feasable to have KOTS deploy an application that only consists of the HELM CLI (and the charts it needs to install/upgrade).
+The desired outcome of this is to learn if it is feasable to have KOTS deploy an application that only consists of the HELM CLI and the charts it will need to install and or upgrade. In this scenario, the deployment of the actual application (Grafana) is managed by the Helm CLI and not KOTS as KOTS will simply manage the deployment of the Helm CLI.
 
 ### Helm CLI Container
 
-The container is built using a Dockerfile based on the one found in this [GitHub Repository](https://github.com/alpine-docker/helm/blob/master/README.md). The only modifications are that the `ENTRYPOINT` and `CMD` lines are removed (since these will be passed in the Pod Definition file) and added a `COPY` command to copy the Grafana chart at build time.
+The container is built using a Dockerfile based on the one found in this [GitHub Repository](https://github.com/alpine-docker/helm/blob/master/README.md). The only modifications are that the `ENTRYPOINT` and `CMD` lines are removed (since these will be passed in the Pod Definition file) and added a `COPY` command to copy the Grafana chart at build time. The Grafana chart is included in the [app](https://github.com/cremerfc/helm-cli-kots/tree/main/app) directory of this repo, which also contains the [Dockerfile](https://github.com/cremerfc/helm-cli-kots/blob/main/app/Dockerfile).
 
 The reason for including the chart at build time is for airgap installations. While the chart could be provided to the end user by other means and then mount it later, this could add complexity and possible points of failure. 
-
 
 #### Defining the Application in KOTS
 
 An application in KOTS is basically a set of YAML files. In this case, this is a very small and simple application that only consists of the container above. This container will then be tasked with deploying the actual Chart.
 
-Because of the nature of this Application, we are deploying this container as a [Kubernets Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/). In order to have this Job properly recreated each time an upgrade is performed by a KOTS, or the application is "Redeployed", we added the KOTS [label annotation](https://kots.io/vendor/packaging/cleaning-up-jobs/) to delete the job once it finishes. If this is not included, the Job will remain and any upgrades of the Job will fail.
+Because of the nature of this Application, we are deploying this container as a [Kubernets Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/) and is defined [here](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/helm-cli-job.yaml). In order to have this Job properly recreated each time an upgrade is performed by KOTS, or the application is "Redeployed", we added the KOTS [label annotation](https://kots.io/vendor/packaging/cleaning-up-jobs/) that tells KOTS to delete the job once it finishes. If this is not included, the Job will remain and any upgrades of the Job will fail.
 
 #### Giving the Job the Proper Permissions
 
