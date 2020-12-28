@@ -22,6 +22,15 @@ An application in KOTS is basically a set of YAML files. In this case, this is a
 
 Because of the nature of this Application, we are deploying this container as a [Kubernets Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/). In order to have this Job properly recreated each time an upgrade is performed by a KOTS, or the application is "Redeployed", we added the KOTS [label annotation](https://kots.io/vendor/packaging/cleaning-up-jobs/) to delete the job once it finishes. If this is not included, the Job will remain and any upgrades of the Job will fail.
 
+#### Giving the Job the Proper Permissions
+
+To ensure that the Pod executing the commands has the proper permissions to install/upgrade the Helm chart in the cluster we add the following to the Job defintion file:
+```yaml
+      serviceAccountName: kotsadm
+      automountServiceAccountToken: true
+
+```
+
 #### Executing the Helm Commands
 
 The following lines are added to the Job defintion file:
@@ -54,6 +63,19 @@ However, this will not work if the containers are in a private registry and if t
 
 In order to have KOTS include these containers in the airgap bundle we need to add them to the `AdditionalImages` [section](https://kots.io/reference/v1beta1/application/#additionalimages) of the KOTS [Application](https://kots.io/reference/v1beta1/application/) Defintion file. 
 
+Below are all of the images referenced in the Chart's `Values.yaml` file added to the [replicated-app.yaml](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/replicated-app.yaml) file:
+
+```yaml
+  additionalImages: 
+    - grafana/grafana:7.3.5
+    - bats/bats:v1.1.0
+    - curlimages/curl:7.73.0
+    - busybox:1.31.1
+    - kiwigrid/k8s-sidecar:1.1.0
+    - grafana/grafana-image-renderer:latest
+```
+
+
 #### Managing Private Containers
 
 If the images are in your private repository, the tag for your repository will depend on how you choose to manage them. Remember, when the Helm Chart is deployed, KOTS is no longer managing this process. This means that KOTS can not automatically handle your images tag to account for where to request it from.
@@ -77,4 +99,9 @@ To account for airgap installs, we use the `{{repl if` statement to determine if
 
 In the case of a private repository, instead of `grafana` we would replace this with something like `registry.replicated.com/your-app-slug/` if you use the Replicated registry to store the images, or with your own private registry address. Note that you may also need to include a `pullSecret` as well.
 
+#### Overriding Values at Install/Upgrade Time
+
+As mentioned above, values that we want to override at install/upgrade time will be passed in the `kots-values.yaml` file, and its contents are defined in the [helm-values-config-map](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/helm-values-config-map.yaml) file.
+
+One of the advantages of using KOTS, is that it can provide the end user with a web UI to enter the values to use at runtime. To do this we use the KOTS [Config](https://kots.io/reference/v1beta1/config/) custom resource as defined in the [Config.yaml](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/config.yaml) file in this repository. Those values are then mapped to the [helm-values-config-map](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/helm-values-config-map.yaml) file.
 
