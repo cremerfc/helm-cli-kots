@@ -1,145 +1,80 @@
-Replicated Kubernetes Starter
+KOTS HELM CLI
 ==================
 
-Example project showcasing how power users can leverage the Replicated CLI Tools to manage kots YAMLs using a git repository.
+Example project that shows how to package the HELM CLI as a KOTS application. In this example, the HELM CLI is used to install and upgrade a Grafana Helm Chart. 
 
-### Get started
+**NOTE - This is an experimanetal project and NOT the way KOTS is currently designed to deploy Helm Charts. To learn about how KOTS supports Helm Charts, please review https://kots.io/vendor/guides/helm-chart/ and https://kots.io/vendor/helm/using-helm-charts/.**
 
-This repo is a [GitHub Template Repository](https://help.github.com/en/articles/creating-a-repository-from-a-template). You can create a private copy by using the "Use this Template" link in the repo:
+### Desired Outcome
 
-![Template Repo](https://help.github.com/assets/images/help/repository/use-this-template-button.png)
+The desired outcome of this is to learn if it is feasable to have KOTS deploy an application that only consists of the HELM CLI (and the charts it needs to install/upgrade).
 
-You should use the template to create a new **private** repo in your org, for example `mycompany/kots-app` or `mycompany/replicated-starter-kots`.
+### Helm CLI Container
 
-Once you've created a repository from the template, you'll want to `git clone` your new repo and `cd` into it locally.
+The container is built using a Dockerfile based on the one found in this [GitHub Repository](https://github.com/alpine-docker/helm/blob/master/README.md). The only modifications are that the `ENTRYPOINT` and `CMD` lines are removed (since these will be passed in the Pod Definition file) and added a `COPY` command to copy the Grafana chart at build time.
 
-
-#### Install CLI
-
-### 1. Install CLI
-
-To start, you'll want to install the `replicated` CLI.
-You can install with [homebrew](https://brew.sh) or grab the latest Linux or macOS version from [the replicatedhq/replicated releases page](https://github.com/replicatedhq/replicated/releases).
-
-##### Brew
-
-```shell script
-brew install replicatedhq/replicated/cli
-```
-
-##### Manual
-
-```shell script
-curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
-           | grep "browser_download_url.*$(uname | tr '[:upper:]' '[:lower:]')_amd64.tar.gz" \
-           | cut -d : -f 2,3 \
-           | tr -d \" \
-           | cat <( echo -n "url") - \
-           | curl -fsSL -K- \
-           | tar xvz replicated
-```
-Then move `./replicated` to somewhere in your `PATH`:
+The reason for including the chart at build time is for airgap installations. While the chart could be provided to the end user by other means and then mount it later, this could add complexity and possible points of failure. 
 
 
-```shell script
-mv replicated /usr/local/bin/
-```
+#### Defining the Application in KOTS
 
-##### Verifying
+An application in KOTS is basically a set of YAML files. In this case, this is a very small and simple application that only consists of the container above. This container will then be tasked with deploying the actual Chart.
 
-You can verify it's installed with `replicated version`:
+Because of the nature of this Application, we are deploying this container as a [Kubernets Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/). In order to have this Job properly recreated each time an upgrade is performed by a KOTS, or the application is "Redeployed", we added the KOTS [label annotation](https://kots.io/vendor/packaging/cleaning-up-jobs/) to delete the job once it finishes. If this is not included, the Job will remain and any upgrades of the Job will fail.
 
-```text
-$ replicated version
-```
-```json
-{
-  "version": "0.31.0",
-  "git": "c67210a",
-  "buildTime": "2020-09-03T18:31:11Z",
-  "go": {
-      "version": "go1.14.7",
-      "compiler": "gc",
-      "os": "darwin",
-      "arch": "amd64"
-  }
-}
-```
+#### Executing the Helm Commands
 
+The following lines are added to the Job defintion file:
 
-#### Configure environment
+```yaml
 
-You'll need to set up two environment variables to interact with vendor.replicated.com:
+       command: ["/bin/sh"]
+       args: ["-c", "helm upgrade --install grafana /apps/grafana-6.1.16.tgz -f kots-values.yaml"]
 
 ```
-export REPLICATED_APP=...
-export REPLICATED_API_TOKEN=...
+
+We are using the `Upgrade` command with the `--install` option which allows us to handle both a new install and an upgrade of the chart. The `kots-values.yaml` file is how we pass any and all values we want to override when deploying in this manner.
+
+The `kots-values.yaml` file is mounted as a Kubernetes `ConfigMap` which is defined as part of the application.
+
+Since this is more of an experiment and things are bound to go wrong, we need as much information when troubleshooting. To help us, we added the following to the job definition file:
+
+```yaml
+           terminationMessagePolicy: FallbackToLogsOnError
 ```
 
-`REPLICATED_APP` should be set to the app slug from the Settings page:
+This setting will write the last chunck of the pod's log (2048 bytes or 80 lines, whichever is smaller) to the [termination-log](https://kubernetes.io/docs/tasks/debug-application-cluster/determine-reason-pod-failure/). This came in really handy when the container would fail due to a Helm error.
 
-<p align="center"><img src="./doc/REPLICATED_APP.png" width=600></img></p>
 
-Next, create an API token from the [Teams and Tokens](https://vendor.replicated.com/team/tokens) page:
+##### Managing Containers
 
-<p align="center"><img src="./doc/REPLICATED_API_TOKEN.png" width=600></img></p>
+Since this KOTS application is comprised of only one container, KOTS does not know about the containers that the Helm Chart will request. If the containers are public, like the containers in the Grafana chart are, then that is OK.
 
-Ensure the token has "Write" access or you'll be unable create new releases. Once you have the values,
-set them in your environment.
+However, this will not work if the containers are in a private registry and if the appliation needs to be installed in an airgap environment. Let's discuss how to handle airgap first.
 
-```
-export REPLICATED_APP=...
-export REPLICATED_API_TOKEN=...
-```
+In order to have KOTS include these containers in the airgap bundle we need to add them to the `AdditionalImages` [section](https://kots.io/reference/v1beta1/application/#additionalimages) of the KOTS [Application](https://kots.io/reference/v1beta1/application/) Defintion file. 
 
-You can ensure this is working with
+#### Managing Private Containers
 
-```
-replicated release ls
-```
+If the images are in your private repository, the tag for your repository will depend on how you choose to manage them. Remember, when the Helm Chart is deployed, KOTS is no longer managing this process. This means that KOTS can not automatically handle your images tag to account for where to request it from.
 
-#### Iterating on your release
+For example, if you would like to use the Replicated Registry (as a proxy or to store your images), you will need to append/change the image tag to account for this. Furthermore, when this is deployed in an airgap environment we will also need to manually account for changing the tag to point to the local registry.
 
-Once you've made changes to your manifests, lint them with
+To do this, we simply take advantage of the ConfigMap we are using to override the image tag. In the Grafana Chart, all the images are defined in the `Values.yaml` file which makes it really easy for us to manage.
 
-```
-replicated release lint --yaml-dir=manifests
+Below is how we handle the `grafana` image in the configMap:
+
+```yaml
+           image:
+             repository: {{repl if HasLocalRegistry }}{{repl LocalRegistryAddress}}{{repl else}}grafana{{repl end}}/grafana
+             pullSecrets:
+             - your-registry-secret-if-needed
 ```
 
-You can push a new release to a channel with
+Note that in the example above, the default value for the `grafana` image is simply `grafana/grafana`, which works in an online install. However, in an airgap install the `grafana` repository will instead be the local registry. 
 
-```
-replicated release create --auto
-```
+To account for airgap installs, we use the `{{repl if` statement to determine if there is a [local registry](https://kots.io/reference/template-functions/config-context/#haslocalregistry) defined (this is always true for airgap installs). If true, we use the [local registry address](https://kots.io/reference/template-functions/config-context/#localregistryaddress) to replace the public `grafana` repository in the image tag with the local registry.
 
-By default the `Unstable` channel will be used. You can override this with the `--promote` flag:
-
-```
-replicated release create --auto --promote=Beta
-```
+In the case of a private repository, instead of `grafana` we would replace this with something like `registry.replicated.com/your-app-slug/` if you use the Replicated registry to store the images, or with your own private registry address. Note that you may also need to include a `pullSecret` as well.
 
 
-### Integrating with CI
-
-This repo contains a [GitHub Actions](https://help.github.com/en/github/automating-your-workflow-with-github-actions/about-github-actions) workflow for ci at [./.github/workflows/main.yml](./.github/workflows/main.yml). You'll need to [configure secrets](https://help.github.com/en/github/automating-your-workflow-with-github-actions/virtual-environments-for-github-actions#creating-and-using-secrets-encrypted-variables) for `REPLICATED_APP` and `REPLICATED_API_TOKEN`. On every push this will:
-
-- Ensure a channel exists for the branch that was pushed to
-- Create a release based on the contents of `./manifests`
-
-## Advanced Usage
-
-### Integrating kurl installer yaml
-
-There is a file `kurl-installer.yaml` that can be used to manage [kurl.sh](https://kurl.sh) installer versions for an embedded Kubernetes cluster. This will be automatically released in CI. You can create a release manually with
-
-```
-replicated installer create --auto
-```
-
-### Tools reference
-
-- [replicated vendor cli](https://github.com/replicatedhq/replicated)
-
-### License
-
-MIT
