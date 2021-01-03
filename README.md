@@ -54,13 +54,11 @@ Since this is more of an experiment and things are bound to go wrong, we need as
 This setting will write the last chunck of the pod's log (2048 bytes or 80 lines, whichever is smaller) to the [termination-log](https://kubernetes.io/docs/tasks/debug-application-cluster/determine-reason-pod-failure/). This came in really handy when the container would fail due to a Helm error.
 
 
-##### Managing Containers
+##### Managing Images
 
-Since this KOTS application is comprised of only one container, KOTS does not know about the containers that the Helm Chart will request. If the containers are public, like the containers in the Grafana chart are, then that is OK.
+Since this KOTS application is comprised of only the Helm CLI container, KOTS does not know about the images that will be pulled when the Helm CLI container runs. If the image are publicly accessible (like the containers in the Grafana chart) that will work with an online install.
 
-However, this will not work if the containers are in a private registry and if the appliation needs to be installed in an airgap environment. Let's discuss how to handle airgap first.
-
-In order to have KOTS include these containers in the airgap bundle we need to add them to the `AdditionalImages` [section](https://kots.io/reference/v1beta1/application/#additionalimages) of the KOTS [Application](https://kots.io/reference/v1beta1/application/) Defintion file. 
+KOTS manages airgap installations by including the applications in the airgap bundle. In order to have KOTS include these containers in the airgap bundle we need to add them to the `AdditionalImages` [section](https://kots.io/reference/v1beta1/application/#additionalimages) of the KOTS [Application](https://kots.io/reference/v1beta1/application/) Defintion file. 
 
 Below are all of the images referenced in the Chart's `Values.yaml` file added to the [replicated-app.yaml](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/replicated-app.yaml) file:
 
@@ -74,6 +72,7 @@ Below are all of the images referenced in the Chart's `Values.yaml` file added t
     - grafana/grafana-image-renderer:latest
 ```
 
+However, this will not work if the containers are in a private registry as the image tags above are for the public images. You will need to change the image tag based on how you choose to manage your prviate containers.
 
 #### Managing Private Containers
 
