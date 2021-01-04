@@ -64,13 +64,13 @@ When it comes to images and KOTS, there are two main use cases that you need to 
 
 #### Online Installs
 
-Since this KOTS application is comprised of only the Helm CLI container, KOTS does not know about the images that will be pulled when the Helm CLI container runs and installs/upgrades the chart. Since this example applicaiton installs the Grafana chart, which pulls only public images no further changes would be needed to This is assuming, of course, there aren't any other network policies or anything else in place in the environment that would limit the access to these public images.
+Since this KOTS application is comprised of only the Helm CLI container, KOTS does not know about the images that will be pulled when the Helm CLI container runs and installs/upgrades the chart. Since this example applicaiton installs the Grafana chart, which pulls only public images no further changes would be needed.  This is assuming, of course, there aren't any other network policies or anything else in place in the environment that would limit the access to these public images.
 
-However, more than likely you will have private images. In order to use KOTS with Replicated, you will need to set up your private image repo as described [here](https://kots.io/vendor/packaging/private-images/). You have the option of either using Replicated's registry to store your images, or as a proxy to your private repo. This will allow the application to leverage KOTS secrets to pull the images at deploy time, instead of yours.
+However, more than likely you will have private images. The first step is to set up your private image repo as described [here](https://kots.io/vendor/packaging/private-images/). You have the option of either using Replicated's registry to store your images, or as a proxy to your private images. This will allow the application to leverage KOTS secrets to pull the images at deploy time, instead of yours.
 
-Regardless, we'll need to ensure that the correct image tags are being used by the chart. In the Grafana Chart, the images are managed in the Values file which we can take advantage of by using a [ConfigMap](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/helm-values-config-map.yaml) to override these values. This is the same ConfigMap that is mounted as the `kots-values.yaml` file that is being passed with the `helm` command.
+Regardless, we'll need to ensure that the correct image tags are being used by the chart. In the Grafana Chart, the images are managed in the Values file which we can take advantage of by using a [ConfigMap](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/helm-values-config-map.yaml) to override these values. This is the same ConfigMap that is mounted as the `kots-values.yaml` file that is being passed with the `helm` [command](https://github.com/cremerfc/helm-cli-kots#executing-the-helm-commands).
 
-If we were to pull all of the images referenced in Helm Chart and then push them into an ECR repo '(<aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/)' , we would then handle the `grafana` image in the configMap as shown here
+If we were to pull all of the images referenced in Helm Chart and then push them into an ECR repo '(<aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/)', we would then handle the `grafana` image in the configMap as shown here:
 
 ```yaml
            image:
@@ -140,4 +140,10 @@ In the case of a private repository, instead of `grafana` we would replace this 
 As mentioned above, values that we want to override at install/upgrade time will be passed in the `kots-values.yaml` file, and its contents are defined in the [helm-values-config-map](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/helm-values-config-map.yaml) file.
 
 One of the advantages of using KOTS, is that it can provide the end user with a web UI to enter the values to use at runtime. To do this we use the KOTS [Config](https://kots.io/reference/v1beta1/config/) custom resource as defined in the [Config.yaml](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/config.yaml) file in this repository. Those values are then mapped to the [helm-values-config-map](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/helm-values-config-map.yaml) file.
+
+### Conclusion 
+
+No real impediments were discovered, other than having to manually manage the images (Public v. Private imgaes, airgap v. online). 
+
+However, all this testing was done with a fairly simple chart. To further test this out, a more complex chart (with lots of hooks!) is needed.
 
