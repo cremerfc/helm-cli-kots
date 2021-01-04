@@ -104,9 +104,9 @@ Note that all of the image tags above are for public images. If the containers a
     - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/grafana:7.3.5
     - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/bats:v1.1.0
     - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/curl:7.73.0
-    - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/:1.31.1
-    - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/:1.1.0
-    - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/:latest
+    - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/busybox:1.31.1
+    - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/k8s-sidecar:1.1.0
+    - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/grafana-image-renderer:latest
 ```
 
 And a reminder that for the above to work, it is assumed that you have set up a connection to this ECR repository as described [here](https://kots.io/vendor/packaging/private-images/).
