@@ -54,11 +54,36 @@ Since this is more of an experiment and things are bound to go wrong, we need as
 This setting will write the last chunck of the pod's log (2048 bytes or 80 lines, whichever is smaller) to the [termination-log](https://kubernetes.io/docs/tasks/debug-application-cluster/determine-reason-pod-failure/). This came in really handy when the container would fail due to a Helm error.
 
 
-##### Managing Images
+### Managing Images
 
-Since this KOTS application is comprised of only the Helm CLI container, KOTS does not know about the images that will be pulled when the Helm CLI container runs. If the image are publicly accessible (like the containers in the Grafana chart) that will work with an online install.
+When it comes to images and KOTS, there are two main use cases that you need to consider:
 
-KOTS manages airgap installations by including the applications in the airgap bundle. In order to have KOTS include these containers in the airgap bundle we need to add them to the `AdditionalImages` [section](https://kots.io/reference/v1beta1/application/#additionalimages) of the KOTS [Application](https://kots.io/reference/v1beta1/application/) Defintion file. 
+* How the images will be available to the application at install/deploy time (private images vs. public images)
+* How to use the right tag for those images depending on the install/deploy method (online vs. airgap)
+
+
+#### Online Installs
+
+Since this KOTS application is comprised of only the Helm CLI container, KOTS does not know about the images that will be pulled when the Helm CLI container runs and installs/upgrades the chart. Since this example applicaiton installs the Grafana chart, which pulls only public images no further changes would be needed to This is assuming, of course, there aren't any other network policies or anything else in place in the environment that would limit the access to these public images.
+
+However, more than likely you will have private images. In order to use KOTS with Replicated, you will need to set up your private image repo as described [here](https://kots.io/vendor/packaging/private-images/). You have the option of either using Replicated's registry to store your images, or as a proxy to your private repo. This will allow the application to leverage KOTS secrets to pull the images at deploy time, instead of yours.
+
+Regardless, we'll need to ensure that the correct image tags are being used by the chart. In the Grafana Chart, the images are managed in the Values file which we can take advantage of by using a [ConfigMap](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/helm-values-config-map.yaml) to override these values. This is the same ConfigMap that is mounted as the `kots-values.yaml` file that is being passed with the `helm` command.
+
+If we were to pull all of the images referenced in Helm Chart and then push them into an ECR repo '(<aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/)' , we would then handle the `grafana` image in the configMap as shown here
+
+```yaml
+           image:
+             repository: <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/grafana
+             pullSecrets:
+             - kotsadm-replicated-registry
+```
+
+#### Airgap Installs
+
+KOTS manages airgap installations by including all of the images (including those for the Application) in an airgap bundle. In a traditional app where KOTS manages the deployment of the app, KOTS will automatically pull those containers when an airgap bundle is built. However, as mentioned above, since our app only consists of the Helm CLI container, that is the only Application container that would be included in the bundle, leaving out all of the containers that the Helm Chart would require.
+
+In order to have KOTS include these containers in the airgap bundle we need to add them to the `AdditionalImages` [section](https://kots.io/reference/v1beta1/application/#additionalimages) of the KOTS [Application](https://kots.io/reference/v1beta1/application/) Defintion file. 
 
 Below are all of the images referenced in the Chart's `Values.yaml` file added to the [replicated-app.yaml](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/replicated-app.yaml) file:
 
@@ -72,17 +97,26 @@ Below are all of the images referenced in the Chart's `Values.yaml` file added t
     - grafana/grafana-image-renderer:latest
 ```
 
-However, this will not work if the containers are in a private registry as the image tags above are for the public images. You will need to change the image tag based on how you choose to manage your prviate containers.
+Note that all of the image tags above are for public images. If the containers are in the private registry we mentioned above, then the image tags would be as follows:
 
-#### Managing Private Containers
+```yaml
+  additionalImages: 
+    - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/grafana:7.3.5
+    - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/bats:v1.1.0
+    - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/curl:7.73.0
+    - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/:1.31.1
+    - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/:1.1.0
+    - <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/:latest
+```
 
-If the images are in your private repository, the tag for your repository will depend on how you choose to manage them. Remember, when the Helm Chart is deployed, KOTS is no longer managing this process. This means that KOTS can not automatically handle your images tag to account for where to request it from.
+And a reminder that for the above to work, it is assumed that you have set up a connection to this ECR repository as described [here](https://kots.io/vendor/packaging/private-images/).
 
-For example, if you would like to use the Replicated Registry (as a proxy or to store your images), you will need to append/change the image tag to account for this. Furthermore, when this is deployed in an airgap environment we will also need to manually account for changing the tag to point to the local registry.
+When KOTS deploys the application to an airgap environment, it will first push all of the images to a local registry. KOTS provides [template function contexts](https://kots.io/reference/template-functions/contexts/) you can use.
 
-To do this, we simply take advantage of the ConfigMap we are using to override the image tag. In the Grafana Chart, all the images are defined in the `Values.yaml` file which makes it really easy for us to manage.
+In most common scenarios, the application may or may not be installed in an airgap environment. In order to account for this, we use the `{{repl if` statement to determine if there is a [local registry](https://kots.io/reference/template-functions/config-context/#haslocalregistry) defined (this is always true for airgap installs). If true, we use the [local registry address](https://kots.io/reference/template-functions/config-context/#localregistryaddress) to replace the image tag with the local registry tag.
 
-Below is how we handle the `grafana` image in the configMap:
+Below is a snippet of the ConfigMap image section:
+
 
 ```yaml
            image:
@@ -91,11 +125,15 @@ Below is how we handle the `grafana` image in the configMap:
              - your-registry-secret-if-needed
 ```
 
-Note that in the example above, the default value for the `grafana` image is simply `grafana/grafana`, which works in an online install. However, in an airgap install the `grafana` repository will instead be the local registry. 
-
-To account for airgap installs, we use the `{{repl if` statement to determine if there is a [local registry](https://kots.io/reference/template-functions/config-context/#haslocalregistry) defined (this is always true for airgap installs). If true, we use the [local registry address](https://kots.io/reference/template-functions/config-context/#localregistryaddress) to replace the public `grafana` repository in the image tag with the local registry.
-
 In the case of a private repository, instead of `grafana` we would replace this with something like `registry.replicated.com/your-app-slug/` if you use the Replicated registry to store the images, or with your own private registry address. Note that you may also need to include a `pullSecret` as well.
+
+```yaml
+           image:
+             repository: {{repl if HasLocalRegistry }}{{repl LocalRegistryAddress}}{{repl else}}<aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps{{repl end}}/grafana
+             pullSecrets:
+             - your-registry-secret-if-needed
+```
+
 
 #### Overriding Values at Install/Upgrade Time
 
