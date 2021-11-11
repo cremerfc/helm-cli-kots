@@ -66,7 +66,9 @@ When it comes to images and KOTS, there are two main use cases that you need to 
 
 Since this KOTS application is comprised of only the Helm CLI container, KOTS does not know about the images that will be pulled when the Helm CLI container runs and installs/upgrades the chart. Since this example applicaiton installs the Grafana chart, which pulls only public images no further changes would be needed.  This is assuming, of course, there aren't any other network policies or anything else in place in the environment that would limit the access to these public images.
 
-However, more than likely you will have private images. The first step is to set up your private image repo as described [here](https://kots.io/vendor/packaging/private-images/). You have the option of either using Replicated's registry to store your images, or as a proxy to your private images. This will allow the application to leverage KOTS secrets to pull the images at deploy time, instead of yours.
+However, more than likely you will have private images. While you could add image tags to pull directly from your registry and include your secrets, a much better way is to let Replicated manage your images. By letting Replicated manage your images, the pull secrets will become invalid when the license expires and you'll be able to create airgap bundles.
+
+The first step is to set up your private image repo as described [here](https://kots.io/vendor/packaging/private-images/). You have the option of either using Replicated's registry to store your images, or as a proxy to your private images. This will allow the application to leverage KOTS secrets to pull the images at deploy time, instead of yours.
 
 Regardless, we'll need to ensure that the correct image tags are being used by the chart. In the Grafana Chart, the images are managed in the Values file which we can take advantage of by using a [ConfigMap](https://github.com/cremerfc/helm-cli-kots/blob/main/manifests/helm-values-config-map.yaml) to override these values. This is the same ConfigMap that is mounted as the `kots-values.yaml` file that is being passed with the `helm` [command](https://github.com/cremerfc/helm-cli-kots#executing-the-helm-commands).
 
@@ -74,9 +76,9 @@ If we were to pull all of the images referenced in Helm Chart and then push them
 
 ```yaml
            image:
-             repository: <aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps/grafana
-             pullSecrets:
-             - kotsadm-replicated-registry
+             repository: proxy.replicated.com/proxy/helm-cli-kots/429114214526.dkr.ecr.us-east-2.amazonaws.com/demo-apps/grafana
+      pullSecrets: 
+        - kotsadm-replicated-registry
 ```
 
 #### Airgap Installs
@@ -129,7 +131,7 @@ In the case of a private repository, instead of `grafana` we would replace this 
 
 ```yaml
            image:
-             repository: {{repl if HasLocalRegistry }}{{repl LocalRegistryAddress}}{{repl else}}<aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps{{repl end}}/grafana
+             repository: {{repl if HasLocalRegistry }}{{repl LocalRegistryAddress}}{{repl else}}proxy.replicated.com/proxy/helm-cli-kots/<aws-account-id>.dkr.ecr.<zone>us-east-2.amazonaws.com/demo-apps{{repl end}}/grafana
              pullSecrets:
              - your-registry-secret-if-needed
 ```
